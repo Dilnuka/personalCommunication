@@ -117,6 +117,47 @@ export function setupSocket(server, corsOrigin) {
       });
     });
 
+    function relayToUser(targetUserId, event, payload) {
+      const socketId = onlineUsers.get(targetUserId);
+      if (socketId) {
+        io.to(socketId).emit(event, payload);
+      }
+    }
+
+    socket.on('call:invite', ({ conversationId, targetUserId, callType, callId }) => {
+      relayToUser(targetUserId, 'call:incoming', {
+        callId,
+        conversationId,
+        callType,
+        fromUserId: userId,
+        fromName: user.display_name,
+      });
+    });
+
+    socket.on('call:accept', ({ callId, targetUserId }) => {
+      relayToUser(targetUserId, 'call:accepted', { callId, fromUserId: userId });
+    });
+
+    socket.on('call:reject', ({ callId, targetUserId }) => {
+      relayToUser(targetUserId, 'call:rejected', { callId, fromUserId: userId });
+    });
+
+    socket.on('call:end', ({ callId, targetUserId }) => {
+      relayToUser(targetUserId, 'call:ended', { callId, fromUserId: userId });
+    });
+
+    socket.on('call:offer', ({ callId, targetUserId, offer }) => {
+      relayToUser(targetUserId, 'call:offer', { callId, fromUserId: userId, offer });
+    });
+
+    socket.on('call:answer', ({ callId, targetUserId, answer }) => {
+      relayToUser(targetUserId, 'call:answer', { callId, fromUserId: userId, answer });
+    });
+
+    socket.on('call:ice-candidate', ({ callId, targetUserId, candidate }) => {
+      relayToUser(targetUserId, 'call:ice-candidate', { callId, fromUserId: userId, candidate });
+    });
+
     socket.on('disconnect', () => {
       if (onlineUsers.get(userId) === socket.id) {
         onlineUsers.delete(userId);

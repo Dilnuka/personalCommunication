@@ -6,11 +6,15 @@ import { api } from '../services/api';
 import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 import AddContactModal from '../components/AddContactModal';
+import CallOverlay from '../components/CallOverlay';
+import { useWebRTC } from '../hooks/useWebRTC';
 
 export default function ChatPage() {
   const { user, logout } = useAuth();
   const { socket, connected } = useSocket();
   const navigate = useNavigate();
+
+  const webrtc = useWebRTC(socket, user?.id);
 
   const [conversations, setConversations] = useState([]);
   const [contacts, setContacts] = useState([]);
@@ -155,6 +159,17 @@ export default function ChatPage() {
     navigate('/login');
   }
 
+  function handleStartCall(callType) {
+    const participant = activeConversation?.participants?.[0];
+    if (!participant || !activeConversation) return;
+    webrtc.startCall(
+      activeConversation.id,
+      participant.id,
+      participant.displayName,
+      callType
+    );
+  }
+
   return (
     <div className="h-screen flex overflow-hidden">
       <Sidebar
@@ -168,7 +183,27 @@ export default function ChatPage() {
         onAddContact={() => setShowAddContact(true)}
         connected={connected}
       />
-      <ChatWindow conversation={activeConversation} currentUserId={user.id} />
+      <ChatWindow
+        conversation={activeConversation}
+        currentUserId={user.id}
+        onStartCall={handleStartCall}
+        callState={webrtc.callState}
+      />
+
+      <CallOverlay
+        callState={webrtc.callState}
+        incomingCall={webrtc.incomingCall}
+        activeCall={webrtc.activeCall}
+        isMuted={webrtc.isMuted}
+        isVideoOff={webrtc.isVideoOff}
+        localVideoRef={webrtc.localVideoRef}
+        remoteVideoRef={webrtc.remoteVideoRef}
+        onAccept={webrtc.acceptCall}
+        onReject={webrtc.rejectCall}
+        onEnd={webrtc.endCall}
+        onToggleMute={webrtc.toggleMute}
+        onToggleVideo={webrtc.toggleVideo}
+      />
 
       {showAddContact && (
         <AddContactModal

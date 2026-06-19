@@ -41,4 +41,6 @@ export const api = {
   },
   markAsRead: (conversationId) =>
     request(`/conversations/${conversationId}/read`, { method: 'POST' }),
+
+  getIceServers: () => request('/webrtc/ice-servers'),
 };

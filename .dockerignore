@@ -1,0 +1,7 @@
+node_modules
+.git
+server/data
+server/.env
+client/dist
+*.md
+!README.md
