@@ -4,12 +4,25 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, '..', 'data');
+const defaultDataDir = path.join(__dirname, '..', 'data');
+const dataDir = process.env.DATA_DIR
+  ? path.resolve(process.env.DATA_DIR)
+  : defaultDataDir;
+
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
 const dbPath = path.join(dataDir, 'app.db');
+console.log(`SQLite database: ${dbPath}`);
+
+if (process.env.NODE_ENV === 'production' && !process.env.DATA_DIR) {
+  console.warn(
+    'WARNING: DATA_DIR is not set. User accounts and messages will be LOST on every deploy/restart. ' +
+    'Attach a Railway volume at /app/server/data and set DATA_DIR=/app/server/data'
+  );
+}
+
 const db = new DatabaseSync(dbPath);
 
 db.exec('PRAGMA journal_mode = WAL');
@@ -87,6 +100,14 @@ export function runTransaction(fn) {
     db.exec('ROLLBACK');
     throw err;
   }
+}
+
+export function getDataDir() {
+  return dataDir;
+}
+
+export function getDbPath() {
+  return dbPath;
 }
 
 export default db;

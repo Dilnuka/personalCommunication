@@ -9,7 +9,7 @@ import contactRoutes from './routes/contacts.js';
 import conversationRoutes from './routes/conversations.js';
 import webrtcRoutes from './routes/webrtc.js';
 import { setupSocket } from './socket.js';
-import './db.js';
+import { getDbPath } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === 'production';
@@ -28,7 +28,14 @@ app.use(cors({
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', environment: isProduction ? 'production' : 'development' });
+  res.json({
+    status: 'ok',
+    environment: isProduction ? 'production' : 'development',
+    database: {
+      path: getDbPath(),
+      persistent: Boolean(process.env.DATA_DIR),
+    },
+  });
 });
 
 app.use('/api/auth', authRoutes);
