@@ -18,7 +18,7 @@ function formatDateDivider(dateStr) {
   return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
-export default function ChatWindow({ conversation, currentUserId, onStartCall, callState }) {
+export default function ChatWindow({ conversation, currentUserId, onStartCall, callState, onBack, showBackButton }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -114,15 +114,15 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f172a] text-center p-8">
-        <div className="w-20 h-20 rounded-full bg-brand-500/10 flex items-center justify-center mb-4">
-          <svg className="w-10 h-10 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="flex-1 flex flex-col items-center justify-center bg-[#0f172a] text-center p-6 sm:p-8 max-md:hidden">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-brand-500/10 flex items-center justify-center mb-4">
+          <svg className="w-8 h-8 sm:w-10 sm:h-10 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         </div>
-        <h2 className="text-xl font-semibold text-white mb-2">Select a conversation</h2>
-        <p className="text-slate-400 max-w-sm">
+        <h2 className="text-lg sm:text-xl font-semibold text-white mb-2">Select a conversation</h2>
+        <p className="text-slate-400 max-w-sm text-sm sm:text-base">
           Choose a chat from the sidebar or start a new conversation with one of your contacts.
         </p>
       </div>
@@ -132,17 +132,29 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
   let lastDate = null;
 
   return (
-    <div className="flex-1 flex flex-col bg-[#0f172a] min-w-0">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700/50 bg-[#1e293b]/50">
-        <div className="flex items-center gap-3">
+    <div className="flex-1 flex flex-col bg-[#0f172a] min-w-0 w-full">
+      <div className="flex items-center justify-between gap-2 px-3 sm:px-6 py-3 sm:py-4 border-b border-slate-700/50 bg-[#1e293b]/50 safe-top">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          {showBackButton && onBack && (
+            <button
+              onClick={onBack}
+              className="md:hidden p-2 -ml-1 text-slate-300 hover:text-white hover:bg-slate-700/50 rounded-xl transition shrink-0"
+              aria-label="Back to chats"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
           <Avatar
             name={conversation.name}
             color={participant?.avatarColor}
             status={participant?.status}
+            size="md"
           />
-          <div>
-            <h2 className="font-semibold text-white">{conversation.name}</h2>
-            <p className="text-sm text-slate-400">
+          <div className="min-w-0">
+            <h2 className="font-semibold text-white truncate text-sm sm:text-base">{conversation.name}</h2>
+            <p className="text-xs sm:text-sm text-slate-400 truncate">
               {typingUser
                 ? `${typingUser} is typing...`
                 : participant?.status === 'online'
@@ -152,12 +164,12 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
           </div>
         </div>
         {onStartCall && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               onClick={() => onStartCall('audio')}
               disabled={!canCall}
               title={canCall ? 'Voice call' : 'User must be online'}
-              className="p-2.5 rounded-xl text-slate-300 hover:bg-slate-700/50 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+              className="p-2 sm:p-2.5 rounded-xl text-slate-300 hover:bg-slate-700/50 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -179,7 +191,7 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-1 overscroll-contain">
         {loading && (
           <div className="flex justify-center py-8">
             <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
@@ -213,7 +225,7 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
               )}
               <div className={`flex mb-2 ${msg.isOwn ? 'justify-end' : 'justify-start'}`}>
                 <div
-                  className={`max-w-[70%] px-4 py-2.5 rounded-2xl ${
+                  className={`max-w-[85%] sm:max-w-[70%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl ${
                     msg.isOwn
                       ? 'bg-brand-500 text-white rounded-br-md'
                       : 'bg-[#1e293b] text-slate-100 rounded-bl-md'
@@ -231,19 +243,19 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={handleSend} className="px-6 py-4 border-t border-slate-700/50 bg-[#1e293b]/30">
-        <div className="flex items-center gap-3">
+      <form onSubmit={handleSend} className="px-3 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-700/50 bg-[#1e293b]/30">
+        <div className="flex items-center gap-2 sm:gap-3">
           <input
             type="text"
             value={input}
             onChange={handleInputChange}
             placeholder="Type a message..."
-            className="flex-1 px-4 py-3 bg-[#0f172a] border border-slate-600/50 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
+            className="flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 text-base sm:text-sm bg-[#0f172a] border border-slate-600/50 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
           />
           <button
             type="submit"
             disabled={!input.trim()}
-            className="p-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition"
+            className="p-2.5 sm:p-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition shrink-0"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

@@ -41,8 +41,8 @@ export default function Sidebar({
   );
 
   return (
-    <div className="w-80 lg:w-96 flex flex-col bg-[#1e293b] border-r border-slate-700/50 shrink-0">
-      <div className="p-4 border-b border-slate-700/50">
+    <div className="w-full flex flex-col bg-[#1e293b] border-r border-slate-700/50 shrink-0 h-full">
+      <div className="p-3 sm:p-4 border-b border-slate-700/50 safe-top">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <Avatar name={user.displayName} color={user.avatarColor} size="md" status="online" />

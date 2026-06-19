@@ -20,6 +20,9 @@ export default function ChatPage() {
   const [contacts, setContacts] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   const [showAddContact, setShowAddContact] = useState(false);
+  const [mobileChatOpen, setMobileChatOpen] = useState(false);
+
+  const showMobileChat = Boolean(activeConversation && mobileChatOpen);
 
   const loadData = useCallback(async () => {
     try {
@@ -127,6 +130,7 @@ export default function ChatPage() {
 
   function handleSelectConversation(conv) {
     setActiveConversation(conv);
+    setMobileChatOpen(true);
     setConversations((prev) =>
       prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
     );
@@ -141,6 +145,7 @@ export default function ChatPage() {
         return [conversation, ...prev];
       });
       setActiveConversation(conversation);
+      setMobileChatOpen(true);
     } catch (err) {
       console.error('Failed to start chat:', err);
     }
@@ -172,24 +177,39 @@ export default function ChatPage() {
 
   return (
     <>
-      <div className="h-screen flex overflow-hidden">
-        <Sidebar
-          user={user}
-          conversations={conversations}
-          contacts={contacts}
-          activeConversationId={activeConversation?.id}
-          onSelectConversation={handleSelectConversation}
-          onStartChat={handleStartChat}
-          onLogout={handleLogout}
-          onAddContact={() => setShowAddContact(true)}
-          connected={connected}
-        />
-        <ChatWindow
-          conversation={activeConversation}
-          currentUserId={user.id}
-          onStartCall={handleStartCall}
-          callState={webrtc.callState}
-        />
+      <div className="h-[100dvh] flex overflow-hidden">
+        <div
+          className={`${
+            showMobileChat ? 'max-md:hidden' : 'max-md:flex'
+          } md:flex w-full md:w-80 lg:w-96 shrink-0`}
+        >
+          <Sidebar
+            user={user}
+            conversations={conversations}
+            contacts={contacts}
+            activeConversationId={activeConversation?.id}
+            onSelectConversation={handleSelectConversation}
+            onStartChat={handleStartChat}
+            onLogout={handleLogout}
+            onAddContact={() => setShowAddContact(true)}
+            connected={connected}
+          />
+        </div>
+
+        <div
+          className={`${
+            showMobileChat || !activeConversation ? 'flex' : 'max-md:hidden'
+          } md:flex flex-1 min-w-0`}
+        >
+          <ChatWindow
+            conversation={activeConversation}
+            currentUserId={user.id}
+            onStartCall={handleStartCall}
+            callState={webrtc.callState}
+            onBack={() => setMobileChatOpen(false)}
+            showBackButton={showMobileChat}
+          />
+        </div>
 
         {showAddContact && (
           <AddContactModal
