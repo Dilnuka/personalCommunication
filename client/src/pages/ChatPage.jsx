@@ -171,24 +171,33 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-screen flex overflow-hidden">
-      <Sidebar
-        user={user}
-        conversations={conversations}
-        contacts={contacts}
-        activeConversationId={activeConversation?.id}
-        onSelectConversation={handleSelectConversation}
-        onStartChat={handleStartChat}
-        onLogout={handleLogout}
-        onAddContact={() => setShowAddContact(true)}
-        connected={connected}
-      />
-      <ChatWindow
-        conversation={activeConversation}
-        currentUserId={user.id}
-        onStartCall={handleStartCall}
-        callState={webrtc.callState}
-      />
+    <>
+      <div className="h-screen flex overflow-hidden">
+        <Sidebar
+          user={user}
+          conversations={conversations}
+          contacts={contacts}
+          activeConversationId={activeConversation?.id}
+          onSelectConversation={handleSelectConversation}
+          onStartChat={handleStartChat}
+          onLogout={handleLogout}
+          onAddContact={() => setShowAddContact(true)}
+          connected={connected}
+        />
+        <ChatWindow
+          conversation={activeConversation}
+          currentUserId={user.id}
+          onStartCall={handleStartCall}
+          callState={webrtc.callState}
+        />
+
+        {showAddContact && (
+          <AddContactModal
+            onClose={() => setShowAddContact(false)}
+            onContactAdded={handleContactAdded}
+          />
+        )}
+      </div>
 
       <CallOverlay
         callState={webrtc.callState}
@@ -204,13 +213,6 @@ export default function ChatPage() {
         onToggleMute={webrtc.toggleMute}
         onToggleVideo={webrtc.toggleVideo}
       />
-
-      {showAddContact && (
-        <AddContactModal
-          onClose={() => setShowAddContact(false)}
-          onContactAdded={handleContactAdded}
-        />
-      )}
-    </div>
+    </>
   );
 }
