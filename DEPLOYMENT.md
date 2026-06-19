@@ -49,7 +49,7 @@ Good for demos and portfolios. Supports WebSockets and persistent disk for SQLit
 
 4. Settings:
    - **Build command:** `npm run install:all && npm run build`
-   - **Start command:** `cd server && NODE_ENV=production node src/index.js`
+   - **Start command:** `npm start`
    - **Plan:** Free (or paid for always-on)
 
 5. **Environment variables:**
@@ -97,7 +97,7 @@ App runs on port **3001**. Put Nginx or Caddy in front for HTTPS.
    ```
 4. Add a **Volume** mounted at `/app/server/data`
 5. Build: `npm run install:all && npm run build`
-6. Start: `cd server && node src/index.js`
+6. Start: `npm start`
 
 ---
 
@@ -117,7 +117,7 @@ CLIENT_URL=https://yourdomain.com
 EOF
 
 npm run build
-cd server && NODE_ENV=production node src/index.js
+NODE_ENV=production npm start
 ```
 
 Use **PM2** to keep it running:
