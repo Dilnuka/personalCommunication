@@ -141,8 +141,8 @@ export default function ChatPage() {
         return [conversation, ...prev];
       });
       setActiveConversation(conversation);
-    } catch {
-      // handle error silently
+    } catch (err) {
+      console.error('Failed to start chat:', err);
     }
   }
 

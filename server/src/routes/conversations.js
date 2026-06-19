@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
-import db from '../db.js';
+import db, { runTransaction } from '../db.js';
 import { authMiddleware } from '../auth.js';
 
 const router = Router();
@@ -24,12 +24,11 @@ function getOrCreateDirectConversation(userId, otherUserId) {
     'INSERT INTO conversation_members (conversation_id, user_id) VALUES (?, ?)'
   );
 
-  const tx = db.transaction(() => {
+  runTransaction(() => {
     insertConv.run(conversationId, 'direct');
     insertMember.run(conversationId, userId);
     insertMember.run(conversationId, otherUserId);
   });
-  tx();
 
   return conversationId;
 }
@@ -109,36 +108,41 @@ router.get('/', authMiddleware, (req, res) => {
 });
 
 router.post('/direct', authMiddleware, (req, res) => {
-  const { userId: otherUserId } = req.body;
-  if (!otherUserId) {
-    return res.status(400).json({ error: 'userId is required' });
+  try {
+    const { userId: otherUserId } = req.body;
+    if (!otherUserId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const other = db.prepare('SELECT id FROM users WHERE id = ?').get(otherUserId);
+    if (!other) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const conversationId = getOrCreateDirectConversation(req.userId, otherUserId);
+    const participants = getConversationParticipants(conversationId, req.userId);
+
+    res.json({
+      conversation: {
+        id: conversationId,
+        type: 'direct',
+        name: participants[0]?.display_name || 'Chat',
+        participants: participants.map((p) => ({
+          id: p.id,
+          username: p.username,
+          displayName: p.display_name,
+          avatarColor: p.avatar_color,
+          status: p.status,
+          statusMessage: p.status_message,
+        })),
+        lastMessage: null,
+        unreadCount: 0,
+      },
+    });
+  } catch (err) {
+    console.error('POST /conversations/direct error:', err);
+    res.status(500).json({ error: 'Failed to start conversation' });
   }
-
-  const other = db.prepare('SELECT id FROM users WHERE id = ?').get(otherUserId);
-  if (!other) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
-  const conversationId = getOrCreateDirectConversation(req.userId, otherUserId);
-  const participants = getConversationParticipants(conversationId, req.userId);
-
-  res.json({
-    conversation: {
-      id: conversationId,
-      type: 'direct',
-      name: participants[0]?.display_name || 'Chat',
-      participants: participants.map((p) => ({
-        id: p.id,
-        username: p.username,
-        displayName: p.display_name,
-        avatarColor: p.avatar_color,
-        status: p.status,
-        statusMessage: p.status_message,
-      })),
-      lastMessage: null,
-      unreadCount: 0,
-    },
-  });
 });
 
 router.get('/:id/messages', authMiddleware, (req, res) => {
@@ -213,12 +217,11 @@ router.post('/:id/read', authMiddleware, (req, res) => {
     'INSERT OR IGNORE INTO message_reads (message_id, user_id) VALUES (?, ?)'
   );
 
-  const tx = db.transaction(() => {
+  runTransaction(() => {
     for (const msg of unreadMessages) {
       insertRead.run(msg.id, req.userId);
     }
   });
-  tx();
 
   res.json({ success: true, readCount: unreadMessages.length });
 });

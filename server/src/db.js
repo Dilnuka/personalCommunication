@@ -77,4 +77,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_contacts_user ON contacts(user_id);
 `);
 
+export function runTransaction(fn) {
+  db.exec('BEGIN');
+  try {
+    const result = fn();
+    db.exec('COMMIT');
+    return result;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
 export default db;
