@@ -14,13 +14,20 @@ export function setupSocket(server, corsOrigin) {
 
   io.on('connection', (socket) => {
     const userId = socket.userId;
-    onlineUsers.set(userId, socket.id);
-
-    db.prepare("UPDATE users SET status = 'online' WHERE id = ?").run(userId);
 
     const user = db.prepare(
       'SELECT id, username, display_name, avatar_color, status, status_message FROM users WHERE id = ?'
     ).get(userId);
+
+    if (!user) {
+      console.warn(`Socket rejected: user ${userId} not found in database`);
+      socket.disconnect(true);
+      return;
+    }
+
+    onlineUsers.set(userId, socket.id);
+
+    db.prepare("UPDATE users SET status = 'online' WHERE id = ?").run(userId);
 
     io.emit('user:status', {
       userId,
@@ -68,6 +75,8 @@ export function setupSocket(server, corsOrigin) {
       const sender = db.prepare(
         'SELECT display_name, avatar_color FROM users WHERE id = ?'
       ).get(userId);
+
+      if (!sender) return;
 
       const message = {
         id: messageId,

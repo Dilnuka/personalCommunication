@@ -48,6 +48,14 @@ if (isProduction) {
 
 setupSocket(server, CLIENT_URL);
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+});
+
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT} (${isProduction ? 'production' : 'development'})`);
 });

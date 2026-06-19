@@ -27,6 +27,16 @@ export function SocketProvider({ children }) {
       transports: ['websocket', 'polling'],
     });
 
+    s.on('connect_error', (err) => {
+      const msg = err?.message || '';
+      if (msg.includes('Authentication') || msg.includes('Invalid or expired')) {
+        localStorage.removeItem('token');
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+          window.location.href = '/login';
+        }
+      }
+    });
+
     s.on('connect', () => setConnected(true));
     s.on('disconnect', () => setConnected(false));
 

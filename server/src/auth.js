@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import db from './db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
@@ -33,6 +34,10 @@ export function socketAuth(socket, next) {
 
   try {
     const payload = verifyToken(token);
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(payload.userId);
+    if (!user) {
+      return next(new Error('Invalid or expired token'));
+    }
     socket.userId = payload.userId;
     next();
   } catch {

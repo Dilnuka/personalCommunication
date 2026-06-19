@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { api } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -6,6 +6,11 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const clearSession = useCallback(() => {
+    localStorage.removeItem('token');
+    setUser(null);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -16,9 +21,9 @@ export function AuthProvider({ children }) {
 
     api.getMe()
       .then(({ user }) => setUser(user))
-      .catch(() => localStorage.removeItem('token'))
+      .catch(() => clearSession())
       .finally(() => setLoading(false));
-  }, []);
+  }, [clearSession]);
 
   const login = useCallback(async (username, password) => {
     const { token, user } = await api.login({ username, password });
@@ -35,9 +40,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('token');
-    setUser(null);
-  }, []);
+    clearSession();
+  }, [clearSession]);
 
   const updateProfile = useCallback(async (data) => {
     const { user: updated } = await api.updateMe(data);
