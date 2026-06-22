@@ -48,8 +48,7 @@ export function DooraLauncher({ onClick, compact = false }) {
         className="doora-launcher group relative w-full text-left"
         aria-label="Open Doora AI assistant"
       >
-        <span className="doora-launcher-border absolute -inset-[1px] rounded-2xl opacity-80 group-hover:opacity-100 transition-opacity" />
-        <span className="relative flex items-center gap-3 rounded-2xl bg-[#0f172a]/95 px-3.5 py-3.5 overflow-hidden">
+        <span className="relative flex items-center gap-3 rounded-2xl bg-[#0f172a]/95 border border-violet-500/20 hover:border-violet-500/35 px-3.5 py-3.5 overflow-hidden transition-colors">
           <span className="doora-launcher-shimmer absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
 
           <span className="relative shrink-0">

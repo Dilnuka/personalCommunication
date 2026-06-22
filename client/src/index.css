@@ -83,12 +83,6 @@
   }
 }
 
-@keyframes doora-border-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes doora-shimmer-sweep {
   0% {
     transform: translateX(-120%);
@@ -158,11 +152,6 @@
     opacity: 1;
     transform: scale(1);
   }
-}
-
-.doora-launcher-border {
-  background: conic-gradient(from 0deg, #8b5cf6, #d946ef, #6366f1, #a855f7, #8b5cf6);
-  animation: doora-border-spin 4s linear infinite;
 }
 
 .doora-launcher-shimmer {
