@@ -8,6 +8,7 @@ import authRoutes from './routes/auth.js';
 import contactRoutes from './routes/contacts.js';
 import conversationRoutes from './routes/conversations.js';
 import webrtcRoutes from './routes/webrtc.js';
+import assistantRoutes from './routes/assistant.js';
 import { setupSocket } from './socket.js';
 import { getDbInfo, initDb } from './db.js';
 
@@ -44,6 +45,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/webrtc', webrtcRoutes);
+app.use('/api/assistant', assistantRoutes);
+
+app.use((err, _req, res, _next) => {
+  console.error('API error:', err);
+  res.status(500).json({ error: err.message || 'Server error' });
+});
 
 if (isProduction) {
   app.use(express.static(clientDist));

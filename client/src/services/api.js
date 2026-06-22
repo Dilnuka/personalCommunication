@@ -53,4 +53,7 @@ export const api = {
     request(`/conversations/${conversationId}/read`, { method: 'POST' }),
 
   getIceServers: () => request('/webrtc/ice-servers'),
+
+  assistantChat: (messages) =>
+    request('/assistant/chat', { method: 'POST', body: JSON.stringify({ messages }) }),
 };

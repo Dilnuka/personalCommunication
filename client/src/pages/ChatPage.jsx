@@ -9,6 +9,7 @@ import AddContactModal from '../components/AddContactModal';
 import CallOverlay from '../components/CallOverlay';
 import ConnectionBanner from '../components/ConnectionBanner';
 import ProfileModal from '../components/ProfileModal';
+import DooraAssistant from '../components/DooraAssistant';
 import { useWebRTC } from '../hooks/useWebRTC';
 import { useToast } from '../context/ToastContext';
 import { useNotifications } from '../context/NotificationContext';
@@ -301,6 +302,8 @@ export default function ChatPage() {
         onToggleMute={webrtc.toggleMute}
         onToggleVideo={webrtc.toggleVideo}
       />
+
+      <DooraAssistant />
     </>
   );
 }
