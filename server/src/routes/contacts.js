@@ -12,6 +12,7 @@ function publicUser(row) {
     username: row.username,
     displayName: row.display_name,
     avatarColor: row.avatar_color,
+    avatarId: row.avatar_id || null,
     status: row.status,
     statusMessage: row.status_message,
   };
@@ -25,7 +26,7 @@ router.get('/search', authMiddleware, async (req, res, next) => {
 
   try {
     const users = await db.all(
-      `SELECT id, username, display_name, avatar_color, status, status_message
+      `SELECT id, username, display_name, avatar_color, avatar_id, status, status_message
        FROM users
        WHERE id != ? AND (username ILIKE ? OR display_name ILIKE ? OR email ILIKE ?)
        LIMIT 20`,
@@ -41,7 +42,7 @@ router.get('/search', authMiddleware, async (req, res, next) => {
 router.get('/', authMiddleware, async (req, res, next) => {
   try {
     const contacts = await db.all(
-      `SELECT u.id, u.username, u.display_name, u.avatar_color, u.status, u.status_message
+      `SELECT u.id, u.username, u.display_name, u.avatar_color, u.avatar_id, u.status, u.status_message
        FROM contacts c
        JOIN users u ON u.id = c.contact_id
        WHERE c.user_id = ?
@@ -86,7 +87,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
     ]);
 
     const user = await db.get(
-      'SELECT id, username, display_name, avatar_color, status, status_message FROM users WHERE id = ?',
+      'SELECT id, username, display_name, avatar_color, avatar_id, status, status_message FROM users WHERE id = ?',
       [contactId]
     );
 

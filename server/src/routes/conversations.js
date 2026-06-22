@@ -30,7 +30,7 @@ async function getOrCreateDirectConversation(userId, otherUserId) {
 
 function getConversationParticipants(conversationId, excludeUserId) {
   return db.all(
-    `SELECT u.id, u.username, u.display_name, u.avatar_color, u.status, u.status_message
+    `SELECT u.id, u.username, u.display_name, u.avatar_color, u.avatar_id, u.status, u.status_message
      FROM conversation_members cm
      JOIN users u ON u.id = cm.user_id
      WHERE cm.conversation_id = ? AND u.id != ?`,
@@ -81,6 +81,7 @@ router.get('/', authMiddleware, async (req, res, next) => {
           username: p.username,
           displayName: p.display_name,
           avatarColor: p.avatar_color,
+          avatarId: p.avatar_id || null,
           status: p.status,
           statusMessage: p.status_message,
         })),
@@ -135,6 +136,7 @@ router.post('/direct', authMiddleware, async (req, res) => {
           username: p.username,
           displayName: p.display_name,
           avatarColor: p.avatar_color,
+          avatarId: p.avatar_id || null,
           status: p.status,
           statusMessage: p.status_message,
         })),
@@ -166,7 +168,8 @@ router.get('/:id/messages', authMiddleware, async (req, res, next) => {
     if (before) {
       messages = await db.all(
         `SELECT m.id, m.conversation_id, m.sender_id, m.content, m.created_at,
-                u.display_name as sender_name, u.avatar_color as sender_avatar_color
+                u.display_name as sender_name, u.avatar_color as sender_avatar_color,
+                u.avatar_id as sender_avatar_id
          FROM messages m
          JOIN users u ON u.id = m.sender_id
          WHERE m.conversation_id = ? AND m.created_at < ?
@@ -177,7 +180,8 @@ router.get('/:id/messages', authMiddleware, async (req, res, next) => {
     } else {
       messages = await db.all(
         `SELECT m.id, m.conversation_id, m.sender_id, m.content, m.created_at,
-                u.display_name as sender_name, u.avatar_color as sender_avatar_color
+                u.display_name as sender_name, u.avatar_color as sender_avatar_color,
+                u.avatar_id as sender_avatar_id
          FROM messages m
          JOIN users u ON u.id = m.sender_id
          WHERE m.conversation_id = ?
@@ -192,8 +196,9 @@ router.get('/:id/messages', authMiddleware, async (req, res, next) => {
       conversationId: m.conversation_id,
       senderId: m.sender_id,
       senderName: m.sender_name,
-      senderAvatarColor: m.sender_avatar_color,
-      content: m.content,
+    senderAvatarColor: m.sender_avatar_color,
+    senderAvatarId: m.sender_avatar_id || null,
+    content: m.content,
       createdAt: m.created_at,
       isOwn: m.sender_id === req.userId,
     }));

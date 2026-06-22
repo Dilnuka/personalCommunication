@@ -1,4 +1,7 @@
-export default function Avatar({ name, color, size = 'md', status }) {
+import { getAvatarUrl } from '../constants/avatars';
+
+export default function Avatar({ name, color, avatarId, size = 'md', status }) {
+  const avatarUrl = getAvatarUrl(avatarId);
   const initials = (name || '?')
     .split(' ')
     .map((w) => w[0])
@@ -21,12 +24,20 @@ export default function Avatar({ name, color, size = 'md', status }) {
 
   return (
     <div className="relative inline-flex shrink-0">
-      <div
-        className={`${sizes[size]} rounded-full flex items-center justify-center font-semibold text-white`}
-        style={{ backgroundColor: color || '#6366f1' }}
-      >
-        {initials}
-      </div>
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt=""
+          className={`${sizes[size]} rounded-full object-cover bg-slate-700/50`}
+        />
+      ) : (
+        <div
+          className={`${sizes[size]} rounded-full flex items-center justify-center font-semibold text-white`}
+          style={{ backgroundColor: color || '#6366f1' }}
+        >
+          {initials}
+        </div>
+      )}
       {status && (
         <span
           className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#1e293b] ${statusColors[status] || statusColors.offline}`}

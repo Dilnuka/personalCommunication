@@ -17,7 +17,7 @@ export function setupSocket(server, corsOrigin) {
       const userId = socket.userId;
 
       const user = await db.get(
-        'SELECT id, username, display_name, avatar_color, status, status_message FROM users WHERE id = ?',
+        'SELECT id, username, display_name, avatar_color, avatar_id, status, status_message FROM users WHERE id = ?',
         [userId]
       );
 
@@ -39,6 +39,7 @@ export function setupSocket(server, corsOrigin) {
           username: user.username,
           displayName: user.display_name,
           avatarColor: user.avatar_color,
+          avatarId: user.avatar_id || null,
           status: 'online',
           statusMessage: user.status_message,
         },
@@ -78,7 +79,7 @@ export function setupSocket(server, corsOrigin) {
         );
 
         const sender = await db.get(
-          'SELECT display_name, avatar_color FROM users WHERE id = ?',
+          'SELECT display_name, avatar_color, avatar_id FROM users WHERE id = ?',
           [userId]
         );
 
@@ -90,6 +91,7 @@ export function setupSocket(server, corsOrigin) {
           senderId: userId,
           senderName: sender.display_name,
           senderAvatarColor: sender.avatar_color,
+          senderAvatarId: sender.avatar_id || null,
           content: content.trim(),
           createdAt: now,
         };

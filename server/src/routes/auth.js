@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { v4 as uuid } from 'uuid';
 import db from '../db.js';
 import { signToken, authMiddleware } from '../auth.js';
+import { isValidAvatarId, randomAvatarId } from '../avatars.js';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ function publicUser(row) {
     email: row.email,
     displayName: row.display_name,
     avatarColor: row.avatar_color,
+    avatarId: row.avatar_id || null,
     status: row.status,
     statusMessage: row.status_message,
     createdAt: row.created_at,
@@ -20,7 +22,7 @@ function publicUser(row) {
 }
 
 router.post('/register', async (req, res, next) => {
-  const { username, email, password, displayName } = req.body;
+  const { username, email, password, displayName, avatarId } = req.body;
 
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Username, email, and password are required' });
@@ -32,14 +34,15 @@ router.post('/register', async (req, res, next) => {
 
   const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#22c55e', '#14b8a6', '#3b82f6'];
   const avatarColor = colors[Math.floor(Math.random() * colors.length)];
+  const chosenAvatarId = isValidAvatarId(avatarId) ? avatarId : randomAvatarId();
   const id = uuid();
   const passwordHash = bcrypt.hashSync(password, 10);
 
   try {
     await db.run(
-      `INSERT INTO users (id, username, email, password_hash, display_name, avatar_color)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [id, username.toLowerCase(), email.toLowerCase(), passwordHash, displayName || username, avatarColor]
+      `INSERT INTO users (id, username, email, password_hash, display_name, avatar_color, avatar_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [id, username.toLowerCase(), email.toLowerCase(), passwordHash, displayName || username, avatarColor, chosenAvatarId]
     );
 
     const user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
@@ -91,7 +94,7 @@ router.get('/me', authMiddleware, async (req, res, next) => {
 });
 
 router.patch('/me', authMiddleware, async (req, res, next) => {
-  const { displayName, statusMessage } = req.body;
+  const { displayName, statusMessage, avatarId } = req.body;
   const updates = [];
   const values = [];
 
@@ -102,6 +105,13 @@ router.patch('/me', authMiddleware, async (req, res, next) => {
   if (statusMessage !== undefined) {
     updates.push('status_message = ?');
     values.push(statusMessage);
+  }
+  if (avatarId !== undefined) {
+    if (!isValidAvatarId(avatarId)) {
+      return res.status(400).json({ error: 'Invalid avatar selection' });
+    }
+    updates.push('avatar_id = ?');
+    values.push(avatarId);
   }
 
   if (updates.length === 0) {

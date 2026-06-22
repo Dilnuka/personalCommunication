@@ -35,6 +35,7 @@ async function execSchema() {
       password_hash TEXT NOT NULL,
       display_name TEXT NOT NULL,
       avatar_color TEXT NOT NULL DEFAULT '#6366f1',
+      avatar_id TEXT,
       status TEXT NOT NULL DEFAULT 'offline',
       status_message TEXT DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -86,6 +87,7 @@ async function execSchema() {
 
 export async function initDb() {
   await execSchema();
+  await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_id TEXT');
   const info = getDbInfo();
   console.log(`Postgres database: ${info.host}/${info.database}`);
 }

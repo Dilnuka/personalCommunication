@@ -151,6 +151,7 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
           <Avatar
             name={conversation.name}
             color={participant?.avatarColor}
+            avatarId={participant?.avatarId}
             status={participant?.status}
             size="md"
           />

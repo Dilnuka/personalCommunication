@@ -56,7 +56,7 @@ export default function Sidebar({
             onClick={onOpenProfile}
             className="flex items-center gap-3 min-w-0 text-left hover:opacity-90 transition"
           >
-            <Avatar name={user.displayName} color={user.avatarColor} size="md" status="online" />
+            <Avatar name={user.displayName} color={user.avatarColor} avatarId={user.avatarId} size="md" status="online" />
             <div className="min-w-0">
               <p className="font-semibold text-white truncate">{user.displayName}</p>
               <p className="text-xs text-slate-400 flex items-center gap-1.5">
@@ -139,6 +139,7 @@ export default function Sidebar({
                   <Avatar
                     name={conv.name}
                     color={participant?.avatarColor}
+                    avatarId={participant?.avatarId}
                     status={participant?.status}
                   />
                   <div className="flex-1 min-w-0">
@@ -196,6 +197,7 @@ export default function Sidebar({
                 <Avatar
                   name={contact.displayName}
                   color={contact.avatarColor}
+                  avatarId={contact.avatarId}
                   status={contact.status}
                 />
                 <div className="flex-1 min-w-0">

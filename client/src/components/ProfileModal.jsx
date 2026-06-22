@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import Avatar from './Avatar';
+import AvatarPicker from './AvatarPicker';
 import Toggle from './Toggle';
 import { useNotifications } from '../context/NotificationContext';
+import { randomAvatarId } from '../constants/avatars';
 
 export default function ProfileModal({ user, onClose, onSave }) {
   const {
@@ -14,6 +16,7 @@ export default function ProfileModal({ user, onClose, onSave }) {
 
   const [displayName, setDisplayName] = useState(user.displayName || '');
   const [statusMessage, setStatusMessage] = useState(user.statusMessage || '');
+  const [avatarId, setAvatarId] = useState(user.avatarId || randomAvatarId());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,7 +34,11 @@ export default function ProfileModal({ user, onClose, onSave }) {
     setError('');
     setLoading(true);
     try {
-      await onSave({ displayName: displayName.trim(), statusMessage: statusMessage.trim() });
+      await onSave({
+        displayName: displayName.trim(),
+        statusMessage: statusMessage.trim(),
+        avatarId,
+      });
       onClose();
     } catch (err) {
       setError(err.message);
@@ -57,7 +64,12 @@ export default function ProfileModal({ user, onClose, onSave }) {
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-4">
-            <Avatar name={displayName || user.displayName} color={user.avatarColor} size="lg" />
+            <Avatar
+              name={displayName || user.displayName}
+              color={user.avatarColor}
+              avatarId={avatarId}
+              size="lg"
+            />
             <div className="min-w-0">
               <p className="text-white font-medium truncate">@{user.username}</p>
               <p className="text-sm text-slate-400 truncate">{user.email}</p>
@@ -70,6 +82,10 @@ export default function ProfileModal({ user, onClose, onSave }) {
 
           <div className="space-y-4">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Profile</h3>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Profile picture</label>
+              <AvatarPicker value={avatarId} onChange={setAvatarId} />
+            </div>
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1.5">Display name</label>
               <input

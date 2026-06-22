@@ -86,7 +86,7 @@ export default function AddContactModal({ onClose, onContactAdded }) {
                 key={user.id}
                 className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-700/30 transition"
               >
-                <Avatar name={user.displayName} color={user.avatarColor} status={user.status} />
+                <Avatar name={user.displayName} color={user.avatarColor} avatarId={user.avatarId} status={user.status} />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-white truncate">{user.displayName}</p>
                   <p className="text-sm text-slate-400 truncate">@{user.username}</p>
