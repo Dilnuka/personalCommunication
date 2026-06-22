@@ -1,7 +1,12 @@
 import db from '../db.js';
 
 const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
-const DEFAULT_MODEL = 'nvidia/nemotron-3-nano-30b-a3b-reasoning';
+const DEFAULT_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+const FALLBACK_MODELS = [
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+  'nvidia/nemotron-mini-4b-instruct',
+  'meta/llama-3.1-8b-instruct',
+];
 
 const SYSTEM_PROMPT = `You are Doora, the smart AI assistant inside the Connect personal communication app.
 
@@ -127,43 +132,59 @@ export async function chatWithDoora({ userId, messages }) {
     throw new Error('Doora is not configured. NVIDIA_API_KEY is missing on the server.');
   }
 
-  const model = process.env.NVIDIA_MODEL || DEFAULT_MODEL;
+  const configuredModel = process.env.NVIDIA_MODEL || DEFAULT_MODEL;
+  const modelsToTry = [...new Set([configuredModel, ...FALLBACK_MODELS])];
   const lastUserMessage = [...messages].reverse().find((m) => m.role === 'user')?.content || '';
   const platformContext = await buildPlatformContext(userId, lastUserMessage);
 
-  const payload = {
-    model,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'system', content: platformContext },
-      ...messages.map((m) => ({ role: m.role, content: m.content })),
-    ],
-    temperature: 0.4,
-    top_p: 0.7,
-    max_tokens: 1024,
-    stream: false,
-  };
+  const baseMessages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    { role: 'system', content: platformContext },
+    ...messages.map((m) => ({ role: m.role, content: m.content })),
+  ];
 
-  const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  let lastError = 'NVIDIA API request failed';
 
-  const data = await res.json().catch(() => ({}));
+  for (const model of modelsToTry) {
+    const payload = {
+      model,
+      messages: baseMessages,
+      temperature: 0.4,
+      top_p: 0.7,
+      max_tokens: 1024,
+      stream: false,
+    };
 
-  if (!res.ok) {
-    const detail = data?.error?.message || data?.detail || `NVIDIA API error (${res.status})`;
-    throw new Error(detail);
+    const res = await fetch(`${NVIDIA_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 404) {
+      lastError = `Model not found: ${model}`;
+      continue;
+    }
+
+    if (!res.ok) {
+      const detail = data?.error?.message || data?.detail || `NVIDIA API error (${res.status})`;
+      throw new Error(detail);
+    }
+
+    const reply = data?.choices?.[0]?.message?.content?.trim();
+    if (!reply) {
+      throw new Error('Doora returned an empty response. Try again.');
+    }
+
+    return { reply, model };
   }
 
-  const reply = data?.choices?.[0]?.message?.content?.trim();
-  if (!reply) {
-    throw new Error('Doora returned an empty response. Try again.');
-  }
-
-  return { reply, model };
+  throw new Error(
+    `${lastError}. Update NVIDIA_MODEL to nvidia/nemotron-3-nano-omni-30b-a3b-reasoning in Railway variables.`
+  );
 }
