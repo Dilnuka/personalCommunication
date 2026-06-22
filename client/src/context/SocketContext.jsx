@@ -25,6 +25,10 @@ export function SocketProvider({ children }) {
     const s = io('/', {
       auth: { token },
       transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
     s.on('connect_error', (err) => {

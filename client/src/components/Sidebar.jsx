@@ -26,10 +26,17 @@ export default function Sidebar({
   onStartChat,
   onLogout,
   onAddContact,
+  onOpenProfile,
   connected,
+  totalUnread = 0,
 }) {
   const [tab, setTab] = useState('chats');
   const [search, setSearch] = useState('');
+
+  function handleContactClick(contact) {
+    setTab('chats');
+    onStartChat(contact);
+  }
 
   const filteredConversations = conversations.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -44,7 +51,11 @@ export default function Sidebar({
     <div className="w-full flex flex-col bg-[#1e293b] border-r border-slate-700/50 shrink-0 h-full">
       <div className="p-3 sm:p-4 border-b border-slate-700/50 safe-top">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onOpenProfile}
+            className="flex items-center gap-3 min-w-0 text-left hover:opacity-90 transition"
+          >
             <Avatar name={user.displayName} color={user.avatarColor} size="md" status="online" />
             <div className="min-w-0">
               <p className="font-semibold text-white truncate">{user.displayName}</p>
@@ -52,8 +63,11 @@ export default function Sidebar({
                 <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'}`} />
                 {connected ? 'Connected' : 'Reconnecting...'}
               </p>
+              {user.statusMessage && (
+                <p className="text-xs text-slate-500 truncate mt-0.5">{user.statusMessage}</p>
+              )}
             </div>
-          </div>
+          </button>
           <button
             onClick={onLogout}
             className="p-2 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition"
@@ -83,11 +97,16 @@ export default function Sidebar({
       <div className="flex border-b border-slate-700/50">
         <button
           onClick={() => setTab('chats')}
-          className={`flex-1 py-2.5 text-sm font-medium transition ${
+          className={`flex-1 py-2.5 text-sm font-medium transition relative ${
             tab === 'chats' ? 'text-brand-500 border-b-2 border-brand-500' : 'text-slate-400 hover:text-white'
           }`}
         >
           Chats
+          {totalUnread > 0 && (
+            <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold bg-brand-500 text-white rounded-full">
+              {totalUnread > 99 ? '99+' : totalUnread}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setTab('contacts')}
@@ -171,7 +190,7 @@ export default function Sidebar({
             {filteredContacts.map((contact) => (
               <button
                 key={contact.id}
-                onClick={() => onStartChat(contact)}
+                onClick={() => handleContactClick(contact)}
                 className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-700/30 transition text-left"
               >
                 <Avatar

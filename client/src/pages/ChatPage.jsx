@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
@@ -7,11 +7,17 @@ import Sidebar from '../components/Sidebar';
 import ChatWindow from '../components/ChatWindow';
 import AddContactModal from '../components/AddContactModal';
 import CallOverlay from '../components/CallOverlay';
+import ConnectionBanner from '../components/ConnectionBanner';
+import ProfileModal from '../components/ProfileModal';
 import { useWebRTC } from '../hooks/useWebRTC';
+import { useToast } from '../context/ToastContext';
+import { useNotifications } from '../context/NotificationContext';
 
 export default function ChatPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
   const { socket, connected } = useSocket();
+  const { showToast } = useToast();
+  const { notifyNewMessage } = useNotifications();
   const navigate = useNavigate();
 
   const webrtc = useWebRTC(socket, user?.id);
@@ -20,9 +26,35 @@ export default function ChatPage() {
   const [contacts, setContacts] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   const [showAddContact, setShowAddContact] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
 
   const showMobileChat = Boolean(activeConversation && mobileChatOpen);
+  const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+  const activeConversationIdRef = useRef(activeConversation?.id);
+  activeConversationIdRef.current = activeConversation?.id;
+
+  function shouldNotifyForMessage(conversationId, senderId) {
+    if (senderId === user?.id) return false;
+    if (document.visibilityState === 'hidden') return true;
+    if (activeConversationIdRef.current !== conversationId) return true;
+    if (!mobileChatOpen && window.innerWidth < 768) return true;
+    return false;
+  }
+
+  const lastNotifiedRef = useRef({ id: null, at: 0 });
+
+  function maybeNotifyMessage({ id, conversationId, senderId, senderName, content }) {
+    if (!shouldNotifyForMessage(conversationId, senderId)) return;
+    const now = Date.now();
+    if (lastNotifiedRef.current.id === id && now - lastNotifiedRef.current.at < 3000) return;
+    lastNotifiedRef.current = { id, at: now };
+    notifyNewMessage({
+      senderName: senderName || 'New message',
+      content,
+      onFocus: () => loadData(),
+    });
+  }
 
   const loadData = useCallback(async () => {
     try {
@@ -32,19 +64,34 @@ export default function ChatPage() {
       ]);
       setConversations(convRes.conversations);
       setContacts(contactRes.contacts);
-    } catch {
-      // silently fail on refresh
+    } catch (err) {
+      showToast(err.message || 'Failed to load data', 'error');
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   useEffect(() => {
+    document.title = totalUnread > 0 ? `(${totalUnread}) Connect` : 'Connect';
+    return () => { document.title = 'Connect'; };
+  }, [totalUnread]);
+
+  useEffect(() => {
     if (!socket) return;
 
     function onConversationUpdated({ conversationId, lastMessage }) {
+      if (lastMessage) {
+        maybeNotifyMessage({
+          id: lastMessage.id,
+          conversationId,
+          senderId: lastMessage.senderId,
+          senderName: lastMessage.senderName,
+          content: lastMessage.content,
+        });
+      }
+
       setConversations((prev) => {
         const updated = prev.map((c) =>
           c.id === conversationId
@@ -97,6 +144,8 @@ export default function ChatPage() {
     }
 
     function onNewMessage({ message }) {
+      maybeNotifyMessage(message);
+
       if (activeConversation?.id === message.conversationId) {
         setConversations((prev) =>
           prev.map((c) =>
@@ -147,8 +196,13 @@ export default function ChatPage() {
       setActiveConversation(conversation);
       setMobileChatOpen(true);
     } catch (err) {
-      console.error('Failed to start chat:', err);
+      showToast(err.message || 'Could not open chat', 'error');
     }
+  }
+
+  async function handleSaveProfile(data) {
+    await updateProfile(data);
+    showToast('Profile updated', 'success');
   }
 
   function handleContactAdded(contact) {
@@ -157,6 +211,7 @@ export default function ChatPage() {
       return [...prev, contact];
     });
     setShowAddContact(false);
+    showToast(`${contact.displayName} added to contacts`, 'success');
   }
 
   function handleLogout() {
@@ -177,7 +232,9 @@ export default function ChatPage() {
 
   return (
     <>
-      <div className="h-[100dvh] flex overflow-hidden">
+      <div className="h-[100dvh] flex flex-col overflow-hidden">
+        <ConnectionBanner connected={connected} />
+        <div className="flex flex-1 min-h-0 overflow-hidden">
         <div
           className={`${
             showMobileChat ? 'max-md:hidden' : 'max-md:flex'
@@ -192,7 +249,9 @@ export default function ChatPage() {
             onStartChat={handleStartChat}
             onLogout={handleLogout}
             onAddContact={() => setShowAddContact(true)}
+            onOpenProfile={() => setShowProfile(true)}
             connected={connected}
+            totalUnread={totalUnread}
           />
         </div>
 
@@ -217,7 +276,16 @@ export default function ChatPage() {
             onContactAdded={handleContactAdded}
           />
         )}
+        </div>
       </div>
+
+      {showProfile && (
+        <ProfileModal
+          user={user}
+          onClose={() => setShowProfile(false)}
+          onSave={handleSaveProfile}
+        />
+      )}
 
       <CallOverlay
         callState={webrtc.callState}

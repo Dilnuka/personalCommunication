@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { api } from '../services/api';
+import { api, setUnauthorizedHandler } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -11,6 +11,11 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     setUser(null);
   }, []);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => clearSession());
+    return () => setUnauthorizedHandler(null);
+  }, [clearSession]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');

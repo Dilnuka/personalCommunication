@@ -23,7 +23,7 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [typingUser, setTypingUser] = useState(null);
-  const { socket } = useSocket();
+  const { socket, connected } = useSocket();
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const participant = conversation?.participants?.[0];
@@ -106,6 +106,8 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
     e.preventDefault();
     const text = input.trim();
     if (!text || !socket || !conversation) return;
+
+    if (!connected) return;
 
     socket.emit('message:send', { conversationId: conversation.id, content: text });
     socket.emit('typing:stop', { conversationId: conversation.id });
@@ -244,17 +246,21 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
       </div>
 
       <form onSubmit={handleSend} className="px-3 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-700/50 bg-[#1e293b]/30">
+        {!connected && (
+          <p className="text-xs text-amber-400 mb-2 text-center">Offline — messages will send when reconnected</p>
+        )}
         <div className="flex items-center gap-2 sm:gap-3">
           <input
             type="text"
             value={input}
             onChange={handleInputChange}
-            placeholder="Type a message..."
+            placeholder={connected ? 'Type a message...' : 'Waiting for connection...'}
+            disabled={!connected}
             className="flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 text-base sm:text-sm bg-[#0f172a] border border-slate-600/50 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
           />
           <button
             type="submit"
-            disabled={!input.trim()}
+            disabled={!input.trim() || !connected}
             className="p-2.5 sm:p-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition shrink-0"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,5 +1,11 @@
 const API_BASE = '/api';
 
+let onUnauthorized = null;
+
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
+}
+
 async function request(path, options = {}) {
   const token = localStorage.getItem('token');
   const headers = {
@@ -13,6 +19,10 @@ async function request(path, options = {}) {
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
+
+  if (res.status === 401 && onUnauthorized) {
+    onUnauthorized();
+  }
 
   if (!res.ok) {
     throw new Error(data.error || 'Request failed');

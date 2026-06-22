@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../services/api';
+import { useNotifications } from '../context/NotificationContext';
 
 function newCallId() {
   return crypto.randomUUID();
@@ -20,8 +21,18 @@ export function useWebRTC(socket, currentUserId) {
   const callStateRef = useRef('idle');
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const prevCallStateRef = useRef('idle');
+
+  const {
+    notifyIncomingCall,
+    notifyOutgoingCall,
+    notifyCallConnected,
+    notifyCallEnded,
+    stopCallRinging,
+  } = useNotifications();
 
   const cleanup = useCallback(() => {
+    stopCallRinging();
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
@@ -39,7 +50,40 @@ export function useWebRTC(socket, currentUserId) {
     setActiveCall(null);
     setIsMuted(false);
     setIsVideoOff(false);
-  }, []);
+  }, [stopCallRinging]);
+
+  useEffect(() => {
+    const prev = prevCallStateRef.current;
+
+    if (callState === 'ringing' && incomingCall && prev !== 'ringing') {
+      notifyIncomingCall({
+        fromName: incomingCall.fromName,
+        callType: incomingCall.callType,
+      });
+    } else if (callState === 'calling' && prev !== 'calling') {
+      notifyOutgoingCall();
+    } else if (callState === 'connected' && prev !== 'connected') {
+      notifyCallConnected();
+    }
+
+    if (callState === 'idle' && prev !== 'idle') {
+      if (['ringing', 'calling', 'connected'].includes(prev)) {
+        notifyCallEnded();
+      } else {
+        stopCallRinging();
+      }
+    }
+
+    prevCallStateRef.current = callState;
+  }, [
+    callState,
+    incomingCall,
+    notifyIncomingCall,
+    notifyOutgoingCall,
+    notifyCallConnected,
+    notifyCallEnded,
+    stopCallRinging,
+  ]);
 
   const attachStreams = useCallback(() => {
     if (localVideoRef.current && localStreamRef.current) {
@@ -273,6 +317,17 @@ export function useWebRTC(socket, currentUserId) {
   }, [activeCall, attachStreams]);
 
   useEffect(() => () => cleanup(), [cleanup]);
+
+  useEffect(() => {
+    if (callState === 'idle') return;
+
+    function onKeyDown(e) {
+      if (e.key === 'Escape') endCall();
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [callState, endCall]);
 
   return {
     callState,
