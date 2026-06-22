@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../services/api';
 import { useSocket } from '../context/SocketContext';
+import { useAuth } from '../context/AuthContext';
 import Avatar from './Avatar';
+import {
+  getCachedMessages,
+  putCachedMessage,
+  putCachedMessages,
+  getOutbox,
+  addToOutbox,
+  removeFromOutbox,
+  mergeMessages,
+} from '../services/messageCache';
+import { createPendingMessage, upsertMessage } from '../utils/messages';
 
 function formatMessageTime(dateStr) {
   return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -19,6 +30,7 @@ function formatDateDivider(dateStr) {
 }
 
 export default function ChatWindow({ conversation, currentUserId, onStartCall, callState, onBack, showBackButton }) {
+  const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -26,26 +38,99 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
   const { socket, connected } = useSocket();
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const messagesRef = useRef(messages);
+  const wasConnectedRef = useRef(connected);
   const participant = conversation?.participants?.[0];
   const canCall = participant?.status === 'online' && callState === 'idle';
+
+  messagesRef.current = messages;
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, []);
 
+  const applyMessages = useCallback((updater) => {
+    setMessages((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      messagesRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const persistMessages = useCallback(async (list) => {
+    await putCachedMessages(list.filter((m) => !m.pending));
+  }, []);
+
+  const ingestMessage = useCallback(async (message) => {
+    const normalized = {
+      ...message,
+      isOwn: message.senderId === currentUserId,
+      pending: false,
+    };
+
+    applyMessages((prev) => upsertMessage(prev, normalized));
+    await putCachedMessage(normalized);
+
+    const outbox = await getOutbox();
+    const match = outbox.find(
+      (o) => o.conversationId === message.conversationId && o.content === message.content
+    );
+    if (match) await removeFromOutbox(match.id);
+  }, [applyMessages, currentUserId]);
+
+  const loadMessages = useCallback(async (conversationId, { showSpinner = true } = {}) => {
+    if (showSpinner) setLoading(true);
+
+    try {
+      const cached = await getCachedMessages(conversationId);
+      if (cached.length > 0) {
+        applyMessages(cached);
+        setLoading(false);
+      }
+
+      const { messages: serverMsgs } = await api.getMessages(conversationId);
+      const pending = messagesRef.current.filter((m) => m.pending);
+      const merged = mergeMessages(serverMsgs, [...cached, ...pending]);
+      applyMessages(merged);
+      await persistMessages(merged);
+      api.markAsRead(conversationId).catch(() => {});
+    } finally {
+      setLoading(false);
+    }
+  }, [applyMessages, persistMessages]);
+
+  const syncMessages = useCallback(async () => {
+    if (!conversation?.id || !socket) return;
+    socket.emit('conversation:join', { conversationId: conversation.id });
+
+    try {
+      const { messages: serverMsgs } = await api.getMessages(conversation.id);
+      const pending = messagesRef.current.filter((m) => m.pending);
+      const merged = mergeMessages(serverMsgs, pending);
+      applyMessages(merged);
+      await persistMessages(merged);
+      api.markAsRead(conversation.id).catch(() => {});
+    } catch {
+      // keep cached messages visible
+    }
+  }, [applyMessages, conversation?.id, persistMessages, socket]);
+
+  const flushOutbox = useCallback(async () => {
+    if (!socket || !connected) return;
+    const outbox = await getOutbox();
+    for (const item of outbox) {
+      socket.emit('message:send', {
+        conversationId: item.conversationId,
+        content: item.content,
+      });
+    }
+  }, [connected, socket]);
+
   useEffect(() => {
     if (!conversation) return;
-
-    setLoading(true);
-    setMessages([]);
-
-    api.getMessages(conversation.id)
-      .then(({ messages: msgs }) => {
-        setMessages(msgs);
-        api.markAsRead(conversation.id).catch(() => {});
-      })
-      .finally(() => setLoading(false));
-  }, [conversation?.id]);
+    applyMessages([]);
+    loadMessages(conversation.id);
+  }, [conversation?.id, applyMessages, loadMessages]);
 
   useEffect(() => {
     if (!loading) scrollToBottom();
@@ -54,17 +139,31 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
   useEffect(() => {
     if (!socket || !conversation) return;
 
-    socket.emit('conversation:join', { conversationId: conversation.id });
+    function joinRoom() {
+      socket.emit('conversation:join', { conversationId: conversation.id });
+    }
+
+    function onConnect() {
+      joinRoom();
+      syncMessages();
+      flushOutbox();
+    }
 
     function onNewMessage({ message }) {
       if (message.conversationId !== conversation.id) return;
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === message.id)) return prev;
-        return [...prev, { ...message, isOwn: message.senderId === currentUserId }];
-      });
+      ingestMessage(message);
       if (message.senderId !== currentUserId) {
         api.markAsRead(conversation.id).catch(() => {});
       }
+    }
+
+    function onConversationUpdated({ conversationId, lastMessage }) {
+      if (conversationId !== conversation.id || !lastMessage) return;
+      ingestMessage({
+        ...lastMessage,
+        conversationId,
+        senderName: lastMessage.senderName || participant?.displayName || 'User',
+      });
     }
 
     function onTypingStart({ conversationId, userId, displayName }) {
@@ -79,39 +178,77 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
       }
     }
 
+    joinRoom();
+    socket.on('connect', onConnect);
     socket.on('message:new', onNewMessage);
+    socket.on('conversation:updated', onConversationUpdated);
     socket.on('typing:start', onTypingStart);
     socket.on('typing:stop', onTypingStop);
 
     return () => {
       socket.emit('conversation:leave', { conversationId: conversation.id });
+      socket.off('connect', onConnect);
       socket.off('message:new', onNewMessage);
+      socket.off('conversation:updated', onConversationUpdated);
       socket.off('typing:start', onTypingStart);
       socket.off('typing:stop', onTypingStop);
     };
-  }, [socket, conversation?.id, currentUserId]);
+  }, [
+    socket,
+    conversation,
+    currentUserId,
+    ingestMessage,
+    syncMessages,
+    flushOutbox,
+    participant?.displayName,
+  ]);
+
+  useEffect(() => {
+    if (connected && !wasConnectedRef.current) {
+      syncMessages();
+      flushOutbox();
+    }
+    wasConnectedRef.current = connected;
+  }, [connected, syncMessages, flushOutbox]);
+
+  async function handleSend(e) {
+    e.preventDefault();
+    const text = input.trim();
+    if (!text || !conversation) return;
+
+    const pending = createPendingMessage({
+      conversationId: conversation.id,
+      senderId: currentUserId,
+      senderName: user?.displayName || 'You',
+      content: text,
+    });
+
+    applyMessages((prev) => upsertMessage(prev, pending));
+    await putCachedMessage(pending);
+    setInput('');
+    socket?.emit('typing:stop', { conversationId: conversation.id });
+
+    if (socket && connected) {
+      socket.emit('message:send', { conversationId: conversation.id, content: text });
+    } else {
+      await addToOutbox({
+        id: pending.id,
+        conversationId: conversation.id,
+        content: text,
+        createdAt: pending.createdAt,
+      });
+    }
+  }
 
   function handleInputChange(e) {
     setInput(e.target.value);
-    if (!socket || !conversation) return;
+    if (!socket || !conversation || !connected) return;
 
     socket.emit('typing:start', { conversationId: conversation.id });
     clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       socket.emit('typing:stop', { conversationId: conversation.id });
     }, 2000);
-  }
-
-  function handleSend(e) {
-    e.preventDefault();
-    const text = input.trim();
-    if (!text || !socket || !conversation) return;
-
-    if (!connected) return;
-
-    socket.emit('message:send', { conversationId: conversation.id, content: text });
-    socket.emit('typing:stop', { conversationId: conversation.id });
-    setInput('');
   }
 
   if (!conversation) {
@@ -132,6 +269,7 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
   }
 
   let lastDate = null;
+  const pendingCount = messages.filter((m) => m.pending).length;
 
   return (
     <div className="flex-1 flex flex-col bg-[#0f172a] min-w-0 w-full">
@@ -195,7 +333,7 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-1 overscroll-contain">
-        {loading && (
+        {loading && messages.length === 0 && (
           <div className="flex justify-center py-8">
             <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
           </div>
@@ -230,13 +368,14 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
                 <div
                   className={`max-w-[85%] sm:max-w-[70%] px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl ${
                     msg.isOwn
-                      ? 'bg-brand-500 text-white rounded-br-md'
+                      ? `bg-brand-500 text-white rounded-br-md ${msg.pending ? 'opacity-80' : ''}`
                       : 'bg-[#1e293b] text-slate-100 rounded-bl-md'
                   }`}
                 >
                   <p className="text-sm leading-relaxed break-words">{msg.content}</p>
-                  <p className={`text-[10px] mt-1 ${msg.isOwn ? 'text-brand-200' : 'text-slate-500'}`}>
+                  <p className={`text-[10px] mt-1 flex items-center gap-1 ${msg.isOwn ? 'text-brand-200' : 'text-slate-500'}`}>
                     {formatMessageTime(msg.createdAt)}
+                    {msg.pending && <span>· Sending</span>}
                   </p>
                 </div>
               </div>
@@ -248,20 +387,23 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
 
       <form onSubmit={handleSend} className="px-3 sm:px-6 py-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-700/50 bg-[#1e293b]/30">
         {!connected && (
-          <p className="text-xs text-amber-400 mb-2 text-center">Offline — messages will send when reconnected</p>
+          <p className="text-xs text-amber-400 mb-2 text-center">
+            {pendingCount > 0
+              ? `${pendingCount} message(s) queued — will send when reconnected`
+              : 'Reconnecting — you can still type and queue messages'}
+          </p>
         )}
         <div className="flex items-center gap-2 sm:gap-3">
           <input
             type="text"
             value={input}
             onChange={handleInputChange}
-            placeholder={connected ? 'Type a message...' : 'Waiting for connection...'}
-            disabled={!connected}
+            placeholder={connected ? 'Type a message...' : 'Type to queue message...'}
             className="flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3 text-base sm:text-sm bg-[#0f172a] border border-slate-600/50 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50"
           />
           <button
             type="submit"
-            disabled={!input.trim() || !connected}
+            disabled={!input.trim()}
             className="p-2.5 sm:p-3 bg-brand-500 hover:bg-brand-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition shrink-0"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
