@@ -83,6 +83,144 @@
   }
 }
 
+@keyframes doora-border-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes doora-shimmer-sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes doora-orb-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes doora-glow-pulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes doora-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes doora-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes doora-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes doora-thinking {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.doora-launcher-border {
+  background: conic-gradient(from 0deg, #8b5cf6, #d946ef, #6366f1, #a855f7, #8b5cf6);
+  animation: doora-border-spin 4s linear infinite;
+}
+
+.doora-launcher-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 60%
+  );
+  animation: doora-shimmer-sweep 2.5s ease-in-out infinite;
+}
+
+.doora-orb-glow {
+  background: linear-gradient(135deg, #8b5cf6, #d946ef, #6366f1);
+  animation: doora-glow-pulse 3s ease-in-out infinite;
+}
+
+.doora-orb-float {
+  animation: doora-orb-float 3s ease-in-out infinite;
+}
+
+.doora-ai-badge {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.35), rgba(217, 70, 239, 0.25));
+  border: 1px solid rgba(167, 139, 250, 0.35);
+}
+
+.doora-compact-glow {
+  background: radial-gradient(circle at center, rgba(139, 92, 246, 0.35), transparent 70%);
+}
+
+.doora-compact-btn:hover .doora-compact-glow {
+  animation: doora-glow-pulse 1.5s ease-in-out infinite;
+}
+
+.doora-panel-in {
+  animation: doora-panel-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  background: linear-gradient(180deg, #131c2e 0%, #0b1220 100%);
+}
+
+.doora-backdrop-in {
+  animation: doora-backdrop-in 0.25s ease-out forwards;
+}
+
+.doora-header-mesh {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(139, 92, 246, 0.35), transparent),
+    radial-gradient(ellipse 60% 50% at 80% 100%, rgba(99, 102, 241, 0.25), transparent),
+    linear-gradient(180deg, #1a1040 0%, #0f172a 100%);
+}
+
+.doora-msg-in {
+  animation: doora-msg-in 0.3s ease-out both;
+}
+
+.doora-thinking-dot {
+  animation: doora-thinking 1.2s ease-in-out infinite;
+}
+
 * {
   box-sizing: border-box;
 }

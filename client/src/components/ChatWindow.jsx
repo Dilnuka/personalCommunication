@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { useSocket } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import Avatar from './Avatar';
+import { DooraLauncher } from './DooraAssistant';
 import {
   getCachedMessages,
   putCachedMessage,
@@ -29,7 +30,7 @@ function formatDateDivider(dateStr) {
   return date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
-export default function ChatWindow({ conversation, currentUserId, onStartCall, callState, onBack, showBackButton }) {
+export default function ChatWindow({ conversation, currentUserId, onStartCall, callState, onBack, showBackButton, onOpenDoora }) {
   const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -304,8 +305,12 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
             </p>
           </div>
         </div>
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {onOpenDoora && showBackButton && (
+            <DooraLauncher compact onClick={onOpenDoora} />
+          )}
         {onStartCall && (
-          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          <>
             <button
               onClick={() => onStartCall('audio')}
               disabled={!canCall}
@@ -328,8 +333,9 @@ export default function ChatWindow({ conversation, currentUserId, onStartCall, c
                   d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
             </button>
-          </div>
+          </>
         )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-3 sm:py-4 space-y-1 overscroll-contain">

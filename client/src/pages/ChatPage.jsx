@@ -29,6 +29,7 @@ export default function ChatPage() {
   const [showAddContact, setShowAddContact] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
+  const [dooraOpen, setDooraOpen] = useState(false);
 
   const showMobileChat = Boolean(activeConversation && mobileChatOpen);
   const totalUnread = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
@@ -251,6 +252,7 @@ export default function ChatPage() {
             onLogout={handleLogout}
             onAddContact={() => setShowAddContact(true)}
             onOpenProfile={() => setShowProfile(true)}
+            onOpenDoora={() => setDooraOpen(true)}
             connected={connected}
             totalUnread={totalUnread}
           />
@@ -268,6 +270,7 @@ export default function ChatPage() {
             callState={webrtc.callState}
             onBack={() => setMobileChatOpen(false)}
             showBackButton={showMobileChat}
+            onOpenDoora={() => setDooraOpen(true)}
           />
         </div>
 
@@ -303,7 +306,7 @@ export default function ChatPage() {
         onToggleVideo={webrtc.toggleVideo}
       />
 
-      <DooraAssistant />
+      <DooraAssistant open={dooraOpen} onClose={() => setDooraOpen(false)} />
     </>
   );
 }

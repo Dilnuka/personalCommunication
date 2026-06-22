@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Avatar from './Avatar';
+import { DooraLauncher } from './DooraAssistant';
 
 function formatTime(dateStr) {
   const date = new Date(dateStr);
@@ -27,6 +28,7 @@ export default function Sidebar({
   onLogout,
   onAddContact,
   onOpenProfile,
+  onOpenDoora,
   connected,
   totalUnread = 0,
 }) {
@@ -212,6 +214,8 @@ export default function Sidebar({
           </>
         )}
       </div>
+
+      {onOpenDoora && <DooraLauncher onClick={onOpenDoora} />}
     </div>
   );
 }
