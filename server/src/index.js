@@ -9,7 +9,7 @@ import contactRoutes from './routes/contacts.js';
 import conversationRoutes from './routes/conversations.js';
 import webrtcRoutes from './routes/webrtc.js';
 import { setupSocket } from './socket.js';
-import { getDbPath } from './db.js';
+import { getDbInfo, initDb } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === 'production';
@@ -28,12 +28,14 @@ app.use(cors({
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
+  const dbInfo = getDbInfo();
   res.json({
     status: 'ok',
     environment: isProduction ? 'production' : 'development',
     database: {
-      path: getDbPath(),
-      persistent: Boolean(process.env.DATA_DIR),
+      provider: dbInfo.provider,
+      host: dbInfo.host,
+      database: dbInfo.database,
     },
   });
 });
@@ -63,6 +65,14 @@ process.on('unhandledRejection', (err) => {
   console.error('Unhandled rejection:', err);
 });
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} (${isProduction ? 'production' : 'development'})`);
+async function startServer() {
+  await initDb();
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT} (${isProduction ? 'production' : 'development'})`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+  process.exit(1);
 });

@@ -11,7 +11,7 @@ export function verifyToken(token) {
   return jwt.verify(token, JWT_SECRET);
 }
 
-export function authMiddleware(req, res, next) {
+export async function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Authentication required' });
@@ -19,6 +19,10 @@ export function authMiddleware(req, res, next) {
 
   try {
     const payload = verifyToken(header.slice(7));
+    const user = await db.get('SELECT id FROM users WHERE id = ?', [payload.userId]);
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
     req.userId = payload.userId;
     next();
   } catch {
@@ -26,7 +30,7 @@ export function authMiddleware(req, res, next) {
   }
 }
 
-export function socketAuth(socket, next) {
+export async function socketAuth(socket, next) {
   const token = socket.handshake.auth?.token;
   if (!token) {
     return next(new Error('Authentication required'));
@@ -34,7 +38,7 @@ export function socketAuth(socket, next) {
 
   try {
     const payload = verifyToken(token);
-    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(payload.userId);
+    const user = await db.get('SELECT id FROM users WHERE id = ?', [payload.userId]);
     if (!user) {
       return next(new Error('Invalid or expired token'));
     }

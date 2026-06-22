@@ -17,35 +17,45 @@ function publicUser(row) {
   };
 }
 
-router.get('/search', authMiddleware, (req, res) => {
+router.get('/search', authMiddleware, async (req, res, next) => {
   const q = (req.query.q || '').trim().toLowerCase();
   if (!q || q.length < 2) {
     return res.json({ users: [] });
   }
 
-  const users = db.prepare(
-    `SELECT id, username, display_name, avatar_color, status, status_message
-     FROM users
-     WHERE id != ? AND (username LIKE ? OR display_name LIKE ? OR email LIKE ?)
-     LIMIT 20`
-  ).all(req.userId, `%${q}%`, `%${q}%`, `%${q}%`);
+  try {
+    const users = await db.all(
+      `SELECT id, username, display_name, avatar_color, status, status_message
+       FROM users
+       WHERE id != ? AND (username ILIKE ? OR display_name ILIKE ? OR email ILIKE ?)
+       LIMIT 20`,
+      [req.userId, `%${q}%`, `%${q}%`, `%${q}%`]
+    );
 
-  res.json({ users: users.map(publicUser) });
+    res.json({ users: users.map(publicUser) });
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.get('/', authMiddleware, (req, res) => {
-  const contacts = db.prepare(
-    `SELECT u.id, u.username, u.display_name, u.avatar_color, u.status, u.status_message
-     FROM contacts c
-     JOIN users u ON u.id = c.contact_id
-     WHERE c.user_id = ?
-     ORDER BY u.display_name`
-  ).all(req.userId);
+router.get('/', authMiddleware, async (req, res, next) => {
+  try {
+    const contacts = await db.all(
+      `SELECT u.id, u.username, u.display_name, u.avatar_color, u.status, u.status_message
+       FROM contacts c
+       JOIN users u ON u.id = c.contact_id
+       WHERE c.user_id = ?
+       ORDER BY u.display_name`,
+      [req.userId]
+    );
 
-  res.json({ contacts: contacts.map(publicUser) });
+    res.json({ contacts: contacts.map(publicUser) });
+  } catch (err) {
+    next(err);
+  }
 });
 
-router.post('/', authMiddleware, (req, res) => {
+router.post('/', authMiddleware, async (req, res, next) => {
   const { contactId } = req.body;
   if (!contactId) {
     return res.status(400).json({ error: 'contactId is required' });
@@ -54,33 +64,48 @@ router.post('/', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'Cannot add yourself as a contact' });
   }
 
-  const contact = db.prepare('SELECT id FROM users WHERE id = ?').get(contactId);
-  if (!contact) {
-    return res.status(404).json({ error: 'User not found' });
+  try {
+    const contact = await db.get('SELECT id FROM users WHERE id = ?', [contactId]);
+    if (!contact) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const existing = await db.get(
+      'SELECT id FROM contacts WHERE user_id = ? AND contact_id = ?',
+      [req.userId, contactId]
+    );
+
+    if (existing) {
+      return res.status(409).json({ error: 'Contact already added' });
+    }
+
+    await db.run('INSERT INTO contacts (id, user_id, contact_id) VALUES (?, ?, ?)', [
+      uuid(),
+      req.userId,
+      contactId,
+    ]);
+
+    const user = await db.get(
+      'SELECT id, username, display_name, avatar_color, status, status_message FROM users WHERE id = ?',
+      [contactId]
+    );
+
+    res.status(201).json({ contact: publicUser(user) });
+  } catch (err) {
+    next(err);
   }
-
-  const existing = db.prepare(
-    'SELECT id FROM contacts WHERE user_id = ? AND contact_id = ?'
-  ).get(req.userId, contactId);
-
-  if (existing) {
-    return res.status(409).json({ error: 'Contact already added' });
-  }
-
-  db.prepare('INSERT INTO contacts (id, user_id, contact_id) VALUES (?, ?, ?)')
-    .run(uuid(), req.userId, contactId);
-
-  const user = db.prepare(
-    'SELECT id, username, display_name, avatar_color, status, status_message FROM users WHERE id = ?'
-  ).get(contactId);
-
-  res.status(201).json({ contact: publicUser(user) });
 });
 
-router.delete('/:contactId', authMiddleware, (req, res) => {
-  db.prepare('DELETE FROM contacts WHERE user_id = ? AND contact_id = ?')
-    .run(req.userId, req.params.contactId);
-  res.json({ success: true });
+router.delete('/:contactId', authMiddleware, async (req, res, next) => {
+  try {
+    await db.run('DELETE FROM contacts WHERE user_id = ? AND contact_id = ?', [
+      req.userId,
+      req.params.contactId,
+    ]);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;

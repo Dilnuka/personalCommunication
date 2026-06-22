@@ -19,7 +19,7 @@ function publicUser(row) {
   };
 }
 
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res, next) => {
   const { username, email, password, displayName } = req.body;
 
   if (!username || !email || !password) {
@@ -36,50 +36,61 @@ router.post('/register', (req, res) => {
   const passwordHash = bcrypt.hashSync(password, 10);
 
   try {
-    db.prepare(
+    await db.run(
       `INSERT INTO users (id, username, email, password_hash, display_name, avatar_color)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).run(id, username.toLowerCase(), email.toLowerCase(), passwordHash, displayName || username, avatarColor);
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [id, username.toLowerCase(), email.toLowerCase(), passwordHash, displayName || username, avatarColor]
+    );
 
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [id]);
     const token = signToken(id);
 
     res.status(201).json({ token, user: publicUser(user) });
   } catch (err) {
-    if (err.message.includes('UNIQUE')) {
+    if (err.code === '23505') {
       return res.status(409).json({ error: 'Username or email already exists' });
     }
-    throw err;
+    next(err);
   }
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res, next) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Username and password are required' });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?')
-    .get(username.toLowerCase(), username.toLowerCase());
+  try {
+    const user = await db.get(
+      'SELECT * FROM users WHERE username = ? OR email = ?',
+      [username.toLowerCase(), username.toLowerCase()]
+    );
 
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    return res.status(401).json({ error: 'Invalid credentials' });
+    if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = signToken(user.id);
+    res.json({ token, user: publicUser(user) });
+  } catch (err) {
+    next(err);
   }
-
-  const token = signToken(user.id);
-  res.json({ token, user: publicUser(user) });
 });
 
-router.get('/me', authMiddleware, (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userId);
-  if (!user) {
-    return res.status(404).json({ error: 'User not found' });
+router.get('/me', authMiddleware, async (req, res, next) => {
+  try {
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.userId]);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ user: publicUser(user) });
+  } catch (err) {
+    next(err);
   }
-  res.json({ user: publicUser(user) });
 });
 
-router.patch('/me', authMiddleware, (req, res) => {
+router.patch('/me', authMiddleware, async (req, res, next) => {
   const { displayName, statusMessage } = req.body;
   const updates = [];
   const values = [];
@@ -97,11 +108,15 @@ router.patch('/me', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'No fields to update' });
   }
 
-  values.push(req.userId);
-  db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+  try {
+    values.push(req.userId);
+    await db.run(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.userId);
-  res.json({ user: publicUser(user) });
+    const user = await db.get('SELECT * FROM users WHERE id = ?', [req.userId]);
+    res.json({ user: publicUser(user) });
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;
